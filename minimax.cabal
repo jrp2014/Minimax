@@ -25,7 +25,10 @@ source-repository head
   location: https://github.com/jrp2014/minimax.git
 
 common common-options
-  build-depends:    base ^>=4.14.1.0
+  build-depends:
+    , base        ^>=4.14.1.0
+    , containers
+
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-uni-patterns
     -Wincomplete-record-updates -Wredundant-constraints
