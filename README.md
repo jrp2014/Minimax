@@ -5,4 +5,6 @@
 [![Hackage](https://img.shields.io/hackage/v/minimax.svg?logo=haskell)](https://hackage.haskell.org/package/minimax)
 [![MIT license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-See README for more info
+
+Count 4, using the minimax algorithm
+See https://www.youtube.com/watch?v=IoCINPnt0us

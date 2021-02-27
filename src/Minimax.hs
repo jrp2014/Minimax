@@ -1,3 +1,5 @@
+{-# LANGUAGE DerivingStrategies #-}
+
 -- |
 -- Copyright: (c) 2021 jrp2014
 -- SPDX-License-Identifier: MIT
@@ -6,7 +8,6 @@
 -- See README for more info
 module Minimax where
 
-import Data.Char (isDigit)
 import Data.List
   ( group,
     intercalate,
@@ -74,7 +75,7 @@ byDiagonal' xss =
 
 -- The players.  The minimax algorithm relies on this ordering
 
-data Player = O | B | X deriving (Ord, Eq, Show)
+data Player = O | B | X deriving stock (Ord, Eq, Show)
 
 otherPlayer :: Player -> Player
 otherPlayer O = X
@@ -83,7 +84,7 @@ otherPlayer B = undefined
 
 -- Score things (by Player, so X is the best score)
 data Scored a = Scored Player a
-  deriving (Show)
+  deriving stock (Show)
 
 instance Eq (Scored a) where
   (Scored p _) == (Scored q _) = p == q
@@ -130,10 +131,12 @@ mkTree p b = Node b (map (mkTree (otherPlayer p)) (expandBoardByCol p b))
 mkScoredTree :: Player -> Tree Board -> Tree ScoredBoard
 mkScoredTree _ (Node board []) = Node (scoreBoard board) []
 mkScoredTree p (Node board nextBoards) =
-  Node
-    (Scored bestPlay board)
-    scoredNextBoards
+  if w /= B
+    then Node (Scored w board) []
+    else Node (Scored bestPlay board) scoredNextBoards
   where
+    w = winner board
+
     scoredNextBoards :: [Tree ScoredBoard]
     scoredNextBoards = map (mkScoredTree (otherPlayer p)) nextBoards
 
@@ -157,7 +160,7 @@ bestNextBoardsForX :: Board -> [ScoredBoard]
 bestNextBoardsForX board =
   if null xWins
     then -- bring moves with a path to victory (ie, scored X) to the front
-         sortBy (flip compare) $ map rootLabel scoredNextBoards
+      sortBy (flip compare) $ map rootLabel scoredNextBoards
     else xWins -- if the next move wins, take it
   where
     scoredNextBoards = subForest $ mkGameTree X board
@@ -237,100 +240,3 @@ drawScoredTree = drawTree . fmap showScored
     showScored :: ScoredBoard -> String
     showScored (Scored s b) =
       showPlayer s : '+' : intercalate "\n  " (map (map showPlayer) b)
-
-
--- MAIN
-main :: IO ()
-main = do
-  let board = test -- or empty
-  putStrLn $ "win " ++ show win
-  putStrLn $ "depth " ++ show depth
-  putStrLn $ "rows " ++ show rows
-  putStrLn $ "cols " ++ show cols
-  putStrLn $ ""
-  play board
-
--- user entry validation
-data Command = Column Int | Quit | Invalid deriving (Eq, Show)
-
-interpret :: String -> Command
-interpret "q" = Quit
-interpret com
-  | all isDigit com =
-    let d = read com in if d < cols then Column d else Invalid
-interpret _ = Invalid
-
--- Gameplay
-play :: Board -> IO ()
-play board = do
-  showBoard board
-  case winner board of
-    O -> putStrLn "You win!"
-    X -> putStrLn "I win!"
-    B -> do
-      putStr "Player O enter your move: "
-      command <- getLine
-      case interpret command of
-        Quit -> return ()
-        Invalid -> do
-          putStrLn $ command ++ " is invalid.  Enter column number or q"
-          play board
-        Column c -> do
-          case makeMove O c board of
-            Nothing -> do
-              putStrLn "Invalid move.  That column is full."
-              play board
-            Just newBoard -> do
-              case bestNextBoardsForX newBoard of
-                [] -> do
-                  putStrLn "Game over. Draw."
-                (Scored B b : _) -> do
-                  putStrLn "I can't find a path to victory yet"
-                  play b
-                path@(Scored X b : _) -> do
-                  putStrLn "I've found a path to victory!"
---                  mapM_
---                    ( \(Scored s b) -> do
---                        putStrLn $ "\nScore: " ++ [showPlayer s]
---                        showBoard b
---                    )
---                    path
-                  play b
-                (Scored O b : _) -> do
-                  putStrLn "Forced win for you"
-                  play b
-
-test :: Board
-test =
-  [ [B, B, B, B, B, B, B],
-    [B, B, B, B, B, B, B],
-    [B, B, B, B, B, B, B],
-    [B, B, B, X, X, B, B],
-    [B, B, O, O, X, B, B],
-    [B, O, O, X, X, X, O]
-  ]
-
-test2 :: Board
-test2 =
-  [ [B, B, B, B, B],
-    [B, B, B, B, B],
-    [B, B, B, X, B],
-    [B, B, O, O, B],
-    [B, O, O, X, O]
-  ]
-
-test3 :: Board
-test3 = [[B, B, X], [B, X, O], [O, O, X]]
-
-test4 :: Board
-test4 = [[X, O, X], [X, X, O], [O, O, X]]
-
-test5 :: Board
-test5 =
-  [ [B, B, B, B, B, B, B],
-    [B, B, B, B, B, B, B],
-    [B, B, X, B, O, B, B],
-    [B, B, O, X, X, B, B],
-    [B, B, O, O, X, B, B],
-    [X, O, O, X, X, X, O]
-  ]
