@@ -1,6 +1,8 @@
 {-# LANGUAGE DerivingStrategies #-}
+
 module Main (main) where
 
+import Data.Char (isDigit)
 import Minimax
     ( Scored(Scored),
       Player(O, B, X),
@@ -10,11 +12,10 @@ import Minimax
       win,
       depth,
       winner,
-      bestNextBoardsForX,
       makeMove,
-      showBoard )
-import Data.Char (isDigit)
-import System.IO
+      showBoard,
+      bestNextBoards )
+import System.IO ( hFlush, stdout )
 
 main :: IO ()
 main = do
@@ -58,7 +59,7 @@ play board = do
               putStrLn "Invalid move.  That column is full."
               play board
             Just newBoard -> do
-              case bestNextBoardsForX newBoard of
+              case bestNextBoards newBoard X of
                 [] -> do
                   putStrLn "Game over. Draw."
                 (Scored B b : _) -> do
@@ -66,12 +67,12 @@ play board = do
                   play b
                 path@(Scored X b : _) -> do
                   putStrLn "I've found a path to victory!"
---                  mapM_
---                    ( \(Scored s b) -> do
---                        putStrLn $ "\nScore: " ++ [showPlayer s]
---                        showBoard b
---                    )
---                    path
+                  --                  mapM_
+                  --                    ( \(Scored s b) -> do
+                  --                        putStrLn $ "\nScore: " ++ [showPlayer s]
+                  --                        showBoard b
+                  --                    )
+                  --                    path
                   play b
                 (Scored O b : _) -> do
                   putStrLn "Forced win for you"
@@ -109,5 +110,15 @@ test5 =
     [B, B, X, B, O, B, B],
     [B, B, O, X, X, B, B],
     [B, B, O, O, X, B, B],
+    [X, O, O, X, X, X, O]
+  ]
+
+test6 :: Board
+test6 =
+  [ [B, B, B, B, B, B, B],
+    [B, B, B, B, B, B, B],
+    [B, B, B, B, O, B, O],
+    [X, B, B, X, X, B, O],
+    [X, X, O, O, X, B, O],
     [X, O, O, X, X, X, O]
   ]

@@ -6,12 +6,25 @@
 -- Maintainer: jrp2014 <jrp2014@users.noreply.github.com>
 --
 -- See README for more info
-module Minimax where
+module Minimax
+  ( Scored (Scored),
+    Player (O, B, X),
+    Board,
+    rows,
+    cols,
+    win,
+    depth,
+    winner,
+    makeMove,
+    showBoard,
+    bestNextBoards,
+  )
+where
 
+import Control.Parallel.Strategies (parMap, rseq)
 import Data.List
   ( group,
     intercalate,
-    sortBy,
     transpose,
   )
 import Data.Maybe (mapMaybe)
@@ -97,26 +110,27 @@ type ScoredBoard = Scored Board
 scoreBoard :: Board -> ScoredBoard
 scoreBoard board =
   Scored
-    ( maximum $
-        rowWinner
-          <$> [byRow board, byCol board, byDiagonal board, byReverseDiagonal board]
-    )
+    (if X `elem` rowWinners then X else if O `elem` rowWinners then O else B)
     board
   where
-    rowWinner :: [Row] -> Player
-    rowWinner b = case winningRun b of
-      [] -> B -- no winning run just returns a B
-      (w : _) -> w
+    rowWinners =
+      rowWinner
+        <$> [byRow board, byCol board, byDiagonal board, byReverseDiagonal board]
 
-    -- pull out a run of Os or Xs of sufficient length
-    -- this assumes that there is only one, otherwise you will either just get
-    -- the first or, concatenations of runs
-    winningRun :: [Row] -> [Player]
-    winningRun = concat . concatMap (filter (\g -> g == os || g == xs) . group)
+rowWinner :: [Row] -> Player
+rowWinner b = case winningRun b of
+  [] -> B -- no winning run just returns a B
+  (w : _) -> w
 
-    os, xs :: [Player]
-    os = replicate win O
-    xs = replicate win X
+-- pull out a run of Os or Xs of sufficient length
+-- this assumes that there is only one, otherwise you will either just get
+-- the first or, concatenations of runs
+winningRun :: [Row] -> [Player]
+winningRun = concat . concatMap (filter (\g -> g == owin || g == xwin) . group)
+
+owin, xwin :: [Player]
+owin = replicate win O
+xwin = replicate win X
 
 winner :: Board -> Player
 winner b = p where Scored p _ = scoreBoard b
@@ -138,7 +152,7 @@ mkScoredTree p (Node board nextBoards) =
     w = winner board
 
     scoredNextBoards :: [Tree ScoredBoard]
-    scoredNextBoards = map (mkScoredTree (otherPlayer p)) nextBoards
+    scoredNextBoards = parMap rseq (mkScoredTree (otherPlayer p)) nextBoards
 
     Scored bestPlay _ =
       (if p == O then minimum else maximum) (map rootLabel scoredNextBoards)
@@ -156,16 +170,16 @@ mkGameTree p = mkScoredTree p . pruneDepth depth . mkTree p
 -- offering a path to victory first.
 --
 -- Thic could be optimized to avoid having to rebuild the game tree each time
-bestNextBoardsForX :: Board -> [ScoredBoard]
-bestNextBoardsForX board =
-  if null xWins
+bestNextBoards :: Board -> Player -> [ScoredBoard]
+bestNextBoards board player =
+  if null playerWins
     then -- bring moves with a path to victory (ie, scored X) to the front
-      sortBy (flip compare) $ map rootLabel scoredNextBoards
-    else xWins -- if the next move wins, take it
+    -- sortBy (flip compare) $ map rootLabel scoredNextBoards
+      [sb | (Node sb@(Scored p _) _) <- scoredNextBoards, p == best]
+    else playerWins -- if the next move wins, take it
   where
-    scoredNextBoards = subForest $ mkGameTree X board
-    xWins =
-      [Scored X b | Node (Scored X b) _ <- scoredNextBoards, winner b == X]
+    Node (Scored best _) scoredNextBoards = mkGameTree player board
+    playerWins = [sb | Node sb@(Scored _ b) _ <- scoredNextBoards, winner b == player]
 
 -- handy utility
 picks :: [x] -> [(x, ([x], [x]))] -- [(x-here, ([x-before], [x-after]))]

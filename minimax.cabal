@@ -49,7 +49,9 @@ library
   import:          common-options
   hs-source-dirs:  src
   exposed-modules: Minimax
-  build-depends:   containers ^>=0.6.2
+  build-depends:
+    , containers  ^>=0.6.2
+    , parallel    ^>=3.2.2
 
 executable minimax
   import:         common-options
