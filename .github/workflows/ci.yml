@@ -15,7 +15,7 @@ jobs:
         os: [ubuntu-latest, macOS-latest, windows-latest]
         cabal: ["2.4"]
         ghc:
-          - "8.10.3"
+          - "8.10.4"
 
     steps:
     - uses: actions/checkout@v2.3.3
@@ -40,9 +40,5 @@ jobs:
 
     - name: Build
       run: |
-        cabal v2-configure --enable-tests --enable-benchmarks --test-show-details=direct
+        cabal v2-configure #--enable-tests --enable-benchmarks --test-show-details=direct
         cabal v2-build all
-
-    - name: Test
-      run: |
-        cabal v2-test all

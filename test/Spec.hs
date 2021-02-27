@@ -1,7 +1,7 @@
 module Main (main) where
 
-import Minimax (projectName)
+import Minimax
 
 
 main :: IO ()
-main = putStrLn ("Tests for " ++ projectName)
+main = putStrLn "No tests"
