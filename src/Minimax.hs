@@ -25,12 +25,14 @@ import Data.List
   ( intercalate,
     tails,
     transpose,
+    find
   )
-import Data.Maybe (mapMaybe)
 import Data.Tree
   ( Tree (..),
     drawTree,
   )
+
+import Data.Maybe
 
 -- dimensions / limits
 
@@ -124,9 +126,11 @@ rowWinner b = case winningRun b of
 -- pull out a run of Os or Xs of sufficient length
 -- this assumes that there is only one, otherwise you will either just get
 -- the first or, concatenations of runs
-winningRun :: [Row] -> [Player]
+--winningRun :: [Row] -> [Player]
 --winningRun = concat . concatMap (filter (\g -> g == oWin || g == xWin) . group)
-winningRun = concat . concatMap (filter aWin . windows)
+--winningRun = concat . concatMap (filter aWin . windows)
+winningRun :: [Row] -> [Player]
+winningRun =  concat . find aWin
 
 windows :: [Player] -> [[Player]]
 windows = foldr (zipWith (:)) (repeat []) . take win . tails
@@ -134,6 +138,10 @@ windows = foldr (zipWith (:)) (repeat []) . take win . tails
 
 aWin :: [Player] -> Bool
 aWin run = (run == oWin) || (run == xWin)
+--aWin = (`S.member` winners)
+
+--winners :: S.Set [Player]
+--winners = S.fromList [oWin, xWin]
 
 oWin, xWin :: [Player]
 oWin = replicate win O

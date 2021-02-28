@@ -33,9 +33,9 @@ where
     winningRun = concat . concatMap (filter (\g -> g == owin || g == xwin) . group)
 
 
-# Sliding Window
+## Sliding Window
 
-with
+With
 
     winningRun :: [Row] -> [Player]
     winningRun = concat . concatMap (filter aWin . windows)
