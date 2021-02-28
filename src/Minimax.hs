@@ -6,33 +6,19 @@
 -- Maintainer: jrp2014 <jrp2014@users.noreply.github.com>
 --
 -- See README for more info
-module Minimax
-  ( Scored (Scored),
-    Player (O, B, X),
-    Board,
-    rows,
-    cols,
-    win,
-    depth,
-    winner,
-    makeMove,
-    showBoard,
-    bestNextBoards,
-  )
-where
+module Minimax where
 
 import Data.List
-  ( intercalate,
+  ( find,
+    intercalate,
     tails,
     transpose,
-    find
   )
+import Data.Maybe (mapMaybe)
 import Data.Tree
   ( Tree (..),
     drawTree,
   )
-
-import Data.Maybe
 
 -- dimensions / limits
 
@@ -78,15 +64,6 @@ byDiagonal = tail . go []
 byReverseDiagonal :: Board -> [Row]
 byReverseDiagonal = byDiagonal . reverse
 
-byDiagonal' :: Board -> [Row]
-byDiagonal' [] = []
-byDiagonal' ([] : xss) = xss
-byDiagonal' xss =
-  zipWith
-    (++)
-    (map ((: []) . head) xss ++ repeat [])
-    ([] : byDiagonal' (map tail xss))
-
 -- The players.  The minimax algorithm relies on this ordering
 
 data Player = O | B | X deriving stock (Ord, Eq, Show)
@@ -116,7 +93,13 @@ scoreBoard board =
   where
     rowWinners =
       rowWinner
-        <$> [byRow board, byCol board, byDiagonal board, byReverseDiagonal board]
+        <$> [ byRow board,
+              byCol board,
+              drop (win - 1) $ byDiagonal board, -- 1st win-1 diagonals can't contain winners
+              drop (win - 1) $ byReverseDiagonal board
+            ]
+
+
 
 rowWinner :: [Row] -> Player
 rowWinner b = case winningRun b of
@@ -126,22 +109,19 @@ rowWinner b = case winningRun b of
 -- pull out a run of Os or Xs of sufficient length
 -- this assumes that there is only one, otherwise you will either just get
 -- the first or, concatenations of runs
---winningRun :: [Row] -> [Player]
---winningRun = concat . concatMap (filter (\g -> g == oWin || g == xWin) . group)
---winningRun = concat . concatMap (filter aWin . windows)
 winningRun :: [Row] -> [Player]
-winningRun =  concat . find aWin
+winningRun = concat . mapMaybe (find aWin . windows)
 
 windows :: [Player] -> [[Player]]
 windows = foldr (zipWith (:)) (repeat []) . take win . tails
--- slow: windows = transpose . take win . tails
+
+--windows = transpose . take win . tails -- twice as slow
 
 aWin :: [Player] -> Bool
+--aWin = (`elem` [xWin, oWin])
 aWin run = (run == oWin) || (run == xWin)
---aWin = (`S.member` winners)
 
---winners :: S.Set [Player]
---winners = S.fromList [oWin, xWin]
+--aWin = liftM2 (||) (oWin ==) (xWin ==)
 
 oWin, xWin :: [Player]
 oWin = replicate win O
@@ -158,16 +138,19 @@ mkTree p b = Node b (map (mkTree (otherPlayer p)) (expandBoardByCol p b))
 
 -- this is effectively minimax
 mkScoredTree :: Player -> Tree Board -> Tree ScoredBoard
-mkScoredTree B _= error "Cannot make a Scored Tree for B"
+mkScoredTree B _ = error "Cannot make a Scored Tree for B"
 mkScoredTree _ (Node board []) = Node (scoreBoard board) []
 mkScoredTree p (Node board nextBoards) =
-  Node (Scored bestPlay board) scoredNextBoards
+  Node
+    (Scored bestPlay board)
+    scoredNextBoards
   where
     scoredNextBoards :: [Tree ScoredBoard]
     scoredNextBoards = map (mkScoredTree (otherPlayer p)) nextBoards
 
     Scored bestPlay _ =
-      (if p == O then minimum else maximum) $ map (rootLabel . mkScoredTree (otherPlayer p)) nextBoards
+      (if p == O then minimum else maximum) $
+        map (rootLabel . mkScoredTree (otherPlayer p)) nextBoards
 
 pruneDepth :: Int -> Tree a -> Tree a
 pruneDepth d (Node x ts)
@@ -189,7 +172,8 @@ bestNextBoards board player =
     else playerWins -- if the next move wins, take it
   where
     Node (Scored best _) scoredNextBoards = mkGameTree player board
-    playerWins = [sb | Node sb@(Scored _ b) _ <- scoredNextBoards, winner b == player]
+    playerWins =
+      [sb | Node sb@(Scored _ b) _ <- scoredNextBoards, winner b == player]
 
 -- handy utility
 picks :: [x] -> [(x, ([x], [x]))] -- [(x-here, ([x-before], [x-after]))]
@@ -210,7 +194,8 @@ expandBoardByCol :: Player -> Board -> [Board]
 expandBoardByCol p = map byCol . mapMaybe toBoard . reorder . picks . byCol
   where
     toBoard :: (Row, (Board, Board)) -> Maybe Board
-    toBoard (col, (before, after)) = do -- the Maybe Monad
+    toBoard (col, (before, after)) = do
+      -- the Maybe Monad
       newCol <- fillCol p col
       pure $ before ++ newCol : after
 
@@ -226,7 +211,8 @@ reorder list = interweave (reverse before) after
 
 -- try to add a player to the nth column
 makeMove :: Player -> Int -> Board -> Maybe Board
-makeMove p n b = do -- Maybe Monad
+makeMove p n b = do
+  -- Maybe Monad
   newCol <- fillCol p (head after)
   return $ byCol $ before ++ newCol : tail after
   where
