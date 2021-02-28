@@ -21,10 +21,9 @@ module Minimax
   )
 where
 
-import Control.Parallel.Strategies (parMap, rseq)
 import Data.List
-  ( group,
-    intercalate,
+  ( intercalate,
+    tails,
     transpose,
   )
 import Data.Maybe (mapMaybe)
@@ -126,11 +125,19 @@ rowWinner b = case winningRun b of
 -- this assumes that there is only one, otherwise you will either just get
 -- the first or, concatenations of runs
 winningRun :: [Row] -> [Player]
-winningRun = concat . concatMap (filter (\g -> g == owin || g == xwin) . group)
+--winningRun = concat . concatMap (filter (\g -> g == oWin || g == xWin) . group)
+winningRun = concat . concatMap (filter aWin . windows)
 
-owin, xwin :: [Player]
-owin = replicate win O
-xwin = replicate win X
+windows :: [Player] -> [[Player]]
+windows = foldr (zipWith (:)) (repeat []) . take win . tails
+-- slow: windows = transpose . take win . tails
+
+aWin :: [Player] -> Bool
+aWin run = (run == oWin) || (run == xWin)
+
+oWin, xWin :: [Player]
+oWin = replicate win O
+xWin = replicate win X
 
 winner :: Board -> Player
 winner b = p where Scored p _ = scoreBoard b
@@ -143,19 +150,16 @@ mkTree p b = Node b (map (mkTree (otherPlayer p)) (expandBoardByCol p b))
 
 -- this is effectively minimax
 mkScoredTree :: Player -> Tree Board -> Tree ScoredBoard
+mkScoredTree B _= error "Cannot make a Scored Tree for B"
 mkScoredTree _ (Node board []) = Node (scoreBoard board) []
 mkScoredTree p (Node board nextBoards) =
-  if w /= B
-    then Node (Scored w board) []
-    else Node (Scored bestPlay board) scoredNextBoards
+  Node (Scored bestPlay board) scoredNextBoards
   where
-    w = winner board
-
     scoredNextBoards :: [Tree ScoredBoard]
-    scoredNextBoards = parMap rseq (mkScoredTree (otherPlayer p)) nextBoards
+    scoredNextBoards = map (mkScoredTree (otherPlayer p)) nextBoards
 
     Scored bestPlay _ =
-      (if p == O then minimum else maximum) (map rootLabel scoredNextBoards)
+      (if p == O then minimum else maximum) $ map (rootLabel . mkScoredTree (otherPlayer p)) nextBoards
 
 pruneDepth :: Int -> Tree a -> Tree a
 pruneDepth d (Node x ts)
@@ -169,13 +173,11 @@ mkGameTree p = mkScoredTree p . pruneDepth depth . mkTree p
 -- if the next move is a win, take it, otherwise sort the next move with those
 -- offering a path to victory first.
 --
--- Thic could be optimized to avoid having to rebuild the game tree each time
+-- This could be optimized to avoid having to rebuild the game tree each time
 bestNextBoards :: Board -> Player -> [ScoredBoard]
 bestNextBoards board player =
   if null playerWins
-    then -- bring moves with a path to victory (ie, scored X) to the front
-    -- sortBy (flip compare) $ map rootLabel scoredNextBoards
-      [sb | (Node sb@(Scored p _) _) <- scoredNextBoards, p == best]
+    then [sb | (Node sb@(Scored p _) _) <- scoredNextBoards, p == best]
     else playerWins -- if the next move wins, take it
   where
     Node (Scored best _) scoredNextBoards = mkGameTree player board
@@ -187,29 +189,6 @@ picks [] = []
 picks (x : xs) =
   (x, ([], xs)) : [(y, (x : ys, zs)) | (y, (ys, zs)) <- picks xs]
 
-{-
--- The possible next moves with a row
-expandRow :: Player -> Row -> [Row]
-expandRow p = map toRow . filter ((== B) . fst) . picks
-  where
-    toRow :: (Player, (Row, Row)) -> Row
-    toRow (_, (before, after)) = before ++ p : after
-
--- The possible next moves for player p
-expandBoardByRow :: Player -> Board -> [Board]
-expandBoardByRow p = concatMap toBoards . picks
-  where
-    toBoards :: (Row, (Board, Board)) -> [Board]
-    toBoards (row, (before, after)) =
-      [before ++ r : after | r <- expandRow p row, validRow r after]
-
-    -- Rows where having a player with a blank in the column
-    -- underneath are not valid
-    validRow :: Row -> Board -> Bool
-    validRow row rows =
-      all (\(p, c) -> (p == B) || (B `notElem` c)) $ zip row (transpose rows)
--}
-
 -- put a play into the last B in the column, if there is one
 fillCol :: Player -> Row -> Maybe Row
 fillCol p = subst . dropWhile ((/= B) . fst) . picks . reverse
@@ -218,18 +197,28 @@ fillCol p = subst . dropWhile ((/= B) . fst) . picks . reverse
     subst [] = Nothing
     subst ((_, (before, after)) : _) = Just $ reverse $ before ++ p : after
 
--- The possible next moves for player p
+-- The possible next moves for player p, central moves prioritised
 expandBoardByCol :: Player -> Board -> [Board]
-expandBoardByCol p = map byCol . mapMaybe toBoard . picks . byCol
+expandBoardByCol p = map byCol . mapMaybe toBoard . reorder . picks . byCol
   where
     toBoard :: (Row, (Board, Board)) -> Maybe Board
-    toBoard (col, (before, after)) = do
+    toBoard (col, (before, after)) = do -- the Maybe Monad
       newCol <- fillCol p col
       pure $ before ++ newCol : after
 
+-- reorder a list so that central elements come first
+reorder :: [a] -> [a]
+reorder list = interweave (reverse before) after
+  where
+    (before, after) = splitAt (length list `div` 2) list
+
+    interweave [] ys = ys
+    interweave xs [] = xs
+    interweave (x : xs) (y : ys) = y : x : interweave xs ys
+
 -- try to add a player to the nth column
 makeMove :: Player -> Int -> Board -> Maybe Board
-makeMove p n b = do
+makeMove p n b = do -- Maybe Monad
   newCol <- fillCol p (head after)
   return $ byCol $ before ++ newCol : tail after
   where

@@ -1,4 +1,5 @@
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE BangPatterns #-}
 
 module Main (main) where
 
@@ -33,13 +34,13 @@ data Command = Column Int | Quit | Invalid deriving stock (Eq, Show)
 interpret :: String -> Command
 interpret "q" = Quit
 interpret com
-  | all isDigit com =
+  | com /= "" && all isDigit com =
     let d = read com in if d < cols then Column d else Invalid
 interpret _ = Invalid
 
 -- Gameplay
 play :: Board -> IO ()
-play board = do
+play !board = do
   showBoard board
   case winner board of
     O -> putStrLn "You win!"
@@ -65,8 +66,8 @@ play board = do
                 (Scored B b : _) -> do
                   putStrLn "I can't find a path to victory yet"
                   play b
-                path@(Scored X b : _) -> do
-                  putStrLn "I've found a path to victory!"
+                paths@(Scored X b : _) -> do
+                  putStrLn $ show (length paths) ++ " path(s) to victory found!"
                   --                  mapM_
                   --                    ( \(Scored s b) -> do
                   --                        putStrLn $ "\nScore: " ++ [showPlayer s]
