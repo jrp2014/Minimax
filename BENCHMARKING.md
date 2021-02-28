@@ -31,3 +31,40 @@ where
 
     winningRun :: [Row] -> [Player]
     winningRun = concat . concatMap (filter (\g -> g == owin || g == xwin) . group)
+
+
+# Sliding Window
+
+with
+
+    winningRun :: [Row] -> [Player]
+    winningRun = concat . concatMap (filter aWin . windows)
+
+    windows :: [Player] -> [[Player]]
+    windows = foldr (zipWith (:)) (repeat []) . take win . tails
+
+    aWin :: [Player] -> Bool
+    aWin run = (run == oWin) || (run == xWin)
+
+
+we cut running time by a third:
+
+            Sun Feb 28 16:34 2021 Time and Allocation Profiling Report  (Final)
+
+               minimax +RTS -N -p -RTS
+
+            total time  =       10.67 secs   (36376 ticks @ 1000 us, 12 processors)
+            total alloc = 62,035,350,232 bytes  (excludes profiling overheads)
+
+    COST CENTRE           MODULE    SRC                              %time %alloc
+
+    windows               Minimax   src/Minimax.hs:133:1-60           31.5   55.7
+    aWin                  Minimax   src/Minimax.hs:136:1-41           19.9    0.0
+    byDiagonal.go         Minimax   src/Minimax.hs:(70,5)-(75,29)     12.6   16.5
+    winningRun            Minimax   src/Minimax.hs:130:1-55            9.9    2.0
+    scoreBoard.rowWinners Minimax   src/Minimax.hs:(116,5)-(118,81)    7.4    9.3
+    expandBoardByCol      Minimax   src/Minimax.hs:(202,1)-(207,37)    6.1    6.9
+    byDiagonal.go.ts      Minimax   src/Minimax.hs:75:9-29             3.6    4.3
+    ==                    Minimax   src/Minimax.hs:91:46-47            1.6    0.0
+    scoreBoard            Minimax   src/Minimax.hs:(111,1)-(118,81)    1.4    0.5
+    picks                 Minimax   src/Minimax.hs:(188,1)-(190,65)    1.1    2.3
