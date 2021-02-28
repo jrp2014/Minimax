@@ -11,6 +11,7 @@ module Minimax where
 import Data.List
   ( find,
     intercalate,
+    isPrefixOf,
     tails,
     transpose,
   )
@@ -95,33 +96,22 @@ scoreBoard board =
       rowWinner
         <$> [ byRow board,
               byCol board,
-              drop (win - 1) $ byDiagonal board, -- 1st win-1 diagonals can't contain winners
-              drop (win - 1) $ byReverseDiagonal board
+              trimDiagonals $ byDiagonal board,
+              trimDiagonals $ byReverseDiagonal board
             ]
 
-
+   -- 1st/last win-1 diagonals can't contain winners
+    trimDiagonals :: [Row] -> [Row]
+    --trimDiagonals = take (rows + cols - 1 - 2 * (win - 1)) . drop (win - 1)
+    trimDiagonals = take (rows + cols + 1 - 2 * win ) . drop (win - 1)
 
 rowWinner :: [Row] -> Player
-rowWinner b = case winningRun b of
-  [] -> B -- no winning run just returns a B
-  (w : _) -> w
-
--- pull out a run of Os or Xs of sufficient length
--- this assumes that there is only one, otherwise you will either just get
--- the first or, concatenations of runs
-winningRun :: [Row] -> [Player]
-winningRun = concat . mapMaybe (find aWin . windows)
-
-windows :: [Player] -> [[Player]]
-windows = foldr (zipWith (:)) (repeat []) . take win . tails
-
---windows = transpose . take win . tails -- twice as slow
-
-aWin :: [Player] -> Bool
---aWin = (`elem` [xWin, oWin])
-aWin run = (run == oWin) || (run == xWin)
-
---aWin = liftM2 (||) (oWin ==) (xWin ==)
+rowWinner rows 
+  |   any (any (xWin `isPrefixOf`)) tr = X
+  |   any (any (oWin `isPrefixOf`)) tr = O
+  |   otherwise = B
+  where
+    tr = tails rows
 
 oWin, xWin :: [Player]
 oWin = replicate win O

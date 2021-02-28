@@ -4,8 +4,10 @@
 
 Profiling is done by
 
+```bash
     cabal build  lib:minimax exe:minimax --enable-profiling --ghc-options="-fprof-auto"
     cabal run  exe:minimax --enable-profiling --ghc-options="-fprof-auto"  -- +RTS -p
+```
 
 leading to
 
@@ -29,14 +31,16 @@ leading to
 
 where
 
+```haskell
     winningRun :: [Row] -> [Player]
     winningRun = concat . concatMap (filter (\g -> g == owin || g == xwin) . group)
+```
 
-
-## Use sliding Window
+## Try sliding Window
 
 With
 
+```haskell
     winningRun :: [Row] -> [Player]
     winningRun = concat . concatMap (filter aWin . windows)
 
@@ -45,7 +49,7 @@ With
 
     aWin :: [Player] -> Bool
     aWin run = (run == oWin) || (run == xWin)
-
+```
 
 we cut running time by a third:
 
@@ -69,11 +73,12 @@ we cut running time by a third:
     scoreBoard            Minimax   src/Minimax.hs:(111,1)-(118,81)    1.4    0.5
     picks                 Minimax   src/Minimax.hs:(188,1)-(190,65)    1.1    2.3
 
+## Use `find` from `Data.List`
 
-## Use `find`  from `Data.List`
-
+```haskell
     winningRun :: [Row] -> [Player]
     winningRun = concat . mapMaybe (find aWin .  windows)
+```
 
 makes little difference:
 
@@ -97,3 +102,44 @@ makes little difference:
     scoreBoard            Minimax   src/Minimax.hs:(91,1)-(98,81)      1.4    0.5
     picks                 Minimax   src/Minimax.hs:(169,1)-(171,65)    1.1    2.3
 
+## Use prefix search
+
+```haskell
+    rowWinner :: [Row] -> Player
+    rowWinner rows
+      |   any (any (xWin `isPrefixOf`)) tr = X
+      |   any (any (oWin `isPrefixOf`)) tr = O
+      |   otherwise = B
+      where
+        tr = tails rows
+```
+
+more than halves run time:
+
+            Sun Feb 28 21:05 2021 Time and Allocation Profiling Report  (Final)
+
+               minimax +RTS -N -p -RTS
+
+            total time  =        4.70 secs   (16017 ticks @ 1000 us, 12 processors)
+            total alloc = 13,185,902,528 bytes  (excludes profiling overheads)
+
+    COST CENTRE              MODULE    SRC                              %time %alloc
+
+    rowWinner                Minimax   src/Minimax.hs:(108,1)-(111,19)   45.1    0.0
+    expandBoardByCol         Minimax   src/Minimax.hs:(192,1)-(198,37)   14.4   33.7
+    scoreBoard.rowWinners    Minimax   src/Minimax.hs:(95,5)-(101,13)     9.0   17.3
+    byDiagonal.go            Minimax   src/Minimax.hs:(58,5)-(63,29)      7.6   20.2
+    ==                       Minimax   src/Minimax.hs:70:46-47            6.3    0.0
+    scoreBoard.trimDiagonals Minimax   src/Minimax.hs:105:5-70            2.8    3.9
+    picks                    Minimax   src/Minimax.hs:(178,1)-(180,65)    2.8   10.8
+    scoreBoard               Minimax   src/Minimax.hs:(90,1)-(105,70)     2.4    1.3
+    mkScoredTree.(...)       Minimax   src/Minimax.hs:(149,5)-(151,65)    1.4    1.0
+    fillCol                  Minimax   src/Minimax.hs:(184,1)-(188,75)    1.3    1.0
+    byDiagonal.go.ts         Minimax   src/Minimax.hs:63:9-29             1.0    2.5
+    expandBoardByCol.toBoard Minimax   src/Minimax.hs:(195,5)-(198,37)    0.9    1.3
+    fillCol.subst            Minimax   src/Minimax.hs:(187,5)-(188,75)    0.9    2.4
+    byReverseDiagonal        Minimax   src/Minimax.hs:66:1-40             0.7    1.1
+    mkTree                   Minimax   src/Minimax.hs:135:1-73            0.6    1.1
+
+This could probably be improved further by using a better string matching
+algorithm.  
