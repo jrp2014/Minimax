@@ -73,35 +73,6 @@ we cut running time by a third:
     scoreBoard            Minimax   src/Minimax.hs:(111,1)-(118,81)    1.4    0.5
     picks                 Minimax   src/Minimax.hs:(188,1)-(190,65)    1.1    2.3
 
-## Use `find` from `Data.List`
-
-```haskell
-    winningRun :: [Row] -> [Player]
-    winningRun = concat . mapMaybe (find aWin .  windows)
-```
-
-makes little difference:
-
-            Sun Feb 28 18:59 2021 Time and Allocation Profiling Report  (Final)
-
-               minimax +RTS -N -p -RTS
-
-            total time  =       10.31 secs   (35169 ticks @ 1000 us, 12 processors)
-            total alloc = 60,861,688,424 bytes  (excludes profiling overheads)
-
-    COST CENTRE           MODULE    SRC                              %time %alloc
-
-    windows               Minimax   src/Minimax.hs:113:1-60           32.3   56.7
-    aWin                  Minimax   src/Minimax.hs:117:1-41           19.4    0.0
-    byDiagonal.go         Minimax   src/Minimax.hs:(59,5)-(64,29)     12.8   16.8
-    winningRun            Minimax   src/Minimax.hs:110:1-55            7.9    0.1
-    scoreBoard.rowWinners Minimax   src/Minimax.hs:(96,5)-(98,81)      7.7    9.5
-    expandBoardByCol      Minimax   src/Minimax.hs:(183,1)-(188,37)    6.3    7.1
-    byDiagonal.go.ts      Minimax   src/Minimax.hs:64:9-29             3.9    4.4
-    ==                    Minimax   src/Minimax.hs:71:46-47            1.8    0.0
-    scoreBoard            Minimax   src/Minimax.hs:(91,1)-(98,81)      1.4    0.5
-    picks                 Minimax   src/Minimax.hs:(169,1)-(171,65)    1.1    2.3
-
 ## Use prefix search
 
 ```haskell
@@ -140,6 +111,56 @@ more than halves run time:
     fillCol.subst            Minimax   src/Minimax.hs:(187,5)-(188,75)    0.9    2.4
     byReverseDiagonal        Minimax   src/Minimax.hs:66:1-40             0.7    1.1
     mkTree                   Minimax   src/Minimax.hs:135:1-73            0.6    1.1
+
+
+## Use `find` from `Data.List` and simplify `fillCol`
+
+```haskell
+    rowWinner :: [Row] -> Player
+    rowWinner  = head . fromMaybe [B] . find aWin
+
+    aWin :: [Player] -> Bool
+    aWin run = (run == oWin) || (run == xWin)
+
+
+    fillCol :: Player -> Row -> Maybe Row
+    fillCol p r = subst bs rest
+      where
+        (bs, rest) = span (==B) r
+
+        subst [] _ = Nothing -- the column is full
+        subst xs ys = Just $ init xs ++ p : ys
+```
+
+leads to a further significant performance improvement:
+
+
+            Mon Mar  1 19:25 2021 Time and Allocation Profiling Report  (Final)
+
+               minimax +RTS -N -p -RTS
+
+            total time  =        2.09 secs   (7135 ticks @ 1000 us, 12 processors)
+            total alloc = 12,672,760,376 bytes  (excludes profiling overheads)
+
+    COST CENTRE              MODULE    SRC                              %time %alloc
+
+    expandBoardByCol         Minimax   src/Minimax.hs:(191,1)-(197,37)   22.9   35.1
+    aWin                     Minimax   src/Minimax.hs:114:1-41           19.4    0.0
+    scoreBoard.rowWinners    Minimax   src/Minimax.hs:(97,5)-(103,13)    14.4   18.8
+    byDiagonal.go            Minimax   src/Minimax.hs:(60,5)-(65,29)     10.9   21.4
+    rowWinner                Minimax   src/Minimax.hs:111:1-45            5.1    0.0
+    scoreBoard.trimDiagonals Minimax   src/Minimax.hs:108:5-70            4.3    4.2
+    scoreBoard               Minimax   src/Minimax.hs:(92,1)-(108,70)     3.4    1.3
+    fillCol.(...)            Minimax   src/Minimax.hs:179:5-29            3.3    3.2
+    ==                       Minimax   src/Minimax.hs:72:46-47            2.4    0.0
+    byDiagonal.go.ts         Minimax   src/Minimax.hs:65:9-29             1.9    2.6
+    fillCol.subst'           Minimax   src/Minimax.hs:(181,5)-(182,43)    1.9    2.6
+    mkScoredTree.(...)       Minimax   src/Minimax.hs:(141,5)-(143,65)    1.6    1.1
+    picks                    Minimax   src/Minimax.hs:(170,1)-(172,65)    1.5    3.5
+    expandBoardByCol.toBoard Minimax   src/Minimax.hs:(194,5)-(197,37)    1.2    1.3
+    mkTree                   Minimax   src/Minimax.hs:127:1-73            1.0    1.1
+    byReverseDiagonal        Minimax   src/Minimax.hs:68:1-40             0.9    1.1
+
 
 This could probably be improved further by using a better string matching
 algorithm.  

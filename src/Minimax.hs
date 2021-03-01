@@ -11,11 +11,9 @@ module Minimax where
 import Data.List
   ( find,
     intercalate,
-    isPrefixOf,
-    tails,
     transpose,
   )
-import Data.Maybe (mapMaybe)
+import Data.Maybe ( fromMaybe, mapMaybe )
 import Data.Tree
   ( Tree (..),
     drawTree,
@@ -106,12 +104,10 @@ scoreBoard board =
     trimDiagonals = take (rows + cols + 1 - 2 * win ) . drop (win - 1)
 
 rowWinner :: [Row] -> Player
-rowWinner rows 
-  |   any (any (xWin `isPrefixOf`)) tr = X
-  |   any (any (oWin `isPrefixOf`)) tr = O
-  |   otherwise = B
-  where
-    tr = tails rows
+rowWinner  = head . fromMaybe [B] . find aWin
+
+aWin :: [Player] -> Bool
+aWin run = (run == oWin) || (run == xWin)
 
 oWin, xWin :: [Player]
 oWin = replicate win O
@@ -165,19 +161,14 @@ bestNextBoards board player =
     playerWins =
       [sb | Node sb@(Scored _ b) _ <- scoredNextBoards, winner b == player]
 
--- handy utility
-picks :: [x] -> [(x, ([x], [x]))] -- [(x-here, ([x-before], [x-after]))]
-picks [] = []
-picks (x : xs) =
-  (x, ([], xs)) : [(y, (x : ys, zs)) | (y, (ys, zs)) <- picks xs]
-
 -- put a play into the last B in the column, if there is one
 fillCol :: Player -> Row -> Maybe Row
-fillCol p = subst . dropWhile ((/= B) . fst) . picks . reverse
+fillCol p r = subst bs rest
   where
-    subst :: [(Player, (Row, Row))] -> Maybe Row
-    subst [] = Nothing
-    subst ((_, (before, after)) : _) = Just $ reverse $ before ++ p : after
+    (bs, rest) = span (==B) r
+
+    subst [] _ = Nothing -- the column is full
+    subst xs ys = Just $ init xs ++ p : ys
 
 -- The possible next moves for player p, central moves prioritised
 expandBoardByCol :: Player -> Board -> [Board]
@@ -188,6 +179,12 @@ expandBoardByCol p = map byCol . mapMaybe toBoard . reorder . picks . byCol
       -- the Maybe Monad
       newCol <- fillCol p col
       pure $ before ++ newCol : after
+
+-- handy utility
+picks :: [x] -> [(x, ([x], [x]))] -- [(x-here, ([x-before], [x-after]))]
+picks [] = []
+picks (x : xs) =
+  (x, ([], xs)) : [(y, (x : ys, zs)) | (y, (ys, zs)) <- picks xs]
 
 -- reorder a list so that central elements come first
 reorder :: [a] -> [a]

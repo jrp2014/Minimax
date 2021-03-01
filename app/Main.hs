@@ -1,5 +1,4 @@
 {-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE BangPatterns #-}
 
 module Main (main) where
 
@@ -40,7 +39,7 @@ interpret _ = Invalid
 
 -- Gameplay
 play :: Board -> IO ()
-play !board = do
+play board = do
   showBoard board
   case winner board of
     O -> putStrLn "You win!"
