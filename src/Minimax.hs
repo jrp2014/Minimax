@@ -1,4 +1,5 @@
 {-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE LambdaCase #-}
 
 -- |
 -- Copyright: (c) 2021 jrp2014
@@ -11,9 +12,11 @@ module Minimax where
 import Data.List
   ( find,
     intercalate,
+    isPrefixOf,
+    tails,
     transpose,
   )
-import Data.Maybe ( fromMaybe, mapMaybe )
+import Data.Maybe ( catMaybes, fromMaybe, mapMaybe )
 import Data.Tree
   ( Tree (..),
     drawTree,
@@ -103,9 +106,20 @@ scoreBoard board =
     --trimDiagonals = take (rows + cols - 1 - 2 * (win - 1)) . drop (win - 1)
     trimDiagonals = take (rows + cols + 1 - 2 * win ) . drop (win - 1)
 
+-- Accounts for 30% of runtime
 rowWinner :: [Row] -> Player
-rowWinner  = head . fromMaybe [B] . find aWin
+rowWinner =
+  ( \case
+      [] -> B
+      (w : _) -> w
+  )
+    . concat
+    . mapMaybe (find aWin . windows)
 
+windows :: [Player] -> [[Player]]
+windows = foldr (zipWith (:)) (repeat []) . take win . tails
+
+-- Accounts for 20% of runtime
 aWin :: [Player] -> Bool
 aWin run = (run == oWin) || (run == xWin)
 
