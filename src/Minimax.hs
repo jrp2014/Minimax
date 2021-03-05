@@ -9,20 +9,17 @@
 -- See README for more info
 module Minimax where
 
+import Data.Functor.Classes
 import Data.List
   ( intercalate,
     isInfixOf,
     transpose,
   )
-import Data.Maybe
-  ( mapMaybe,
-  )
+import Data.Maybe (mapMaybe)
 import Data.Tree
   ( Tree (..),
     drawTree,
   )
-
---import KMP
 
 -- dimensions / limits
 
@@ -58,12 +55,14 @@ byDiagonal = tail . go []
   where
     -- it is critical for some applications that we start producing answers
     -- before inspecting es_
+    go :: [Row] -> [Row] -> [Row]
     go b es_ =
       [h | h : _ <- b] : case es_ of
         [] -> transpose ts
         e : es -> go (e : ts) es
       where
-        ts = [t | _ : t <- b]
+        ts :: [Row]
+        ts = [t | _ : t <- b] -- drop first col
 
 byReverseDiagonal :: Board -> [Row]
 byReverseDiagonal = byDiagonal . reverse
@@ -89,6 +88,9 @@ instance Ord (Scored a) where
 
 type ScoredBoard = Scored Board
 
+instance Ord a => Ord (Tree a) where
+  compare = compare1
+
 scoreBoard :: Board -> ScoredBoard
 scoreBoard board =
   Scored
@@ -97,11 +99,10 @@ scoreBoard board =
   where
     rowWinners =
       rowWinner
-        . ($ board)
-        <$> [ byRow,
-              byCol,
-              trimDiagonals . byDiagonal,
-              trimDiagonals . byReverseDiagonal
+        <$> [ byRow board,
+              byCol board,
+              trimDiagonals $ byDiagonal board,
+              trimDiagonals $ byReverseDiagonal board
             ]
 
     -- 1st/last win-1 diagonals can't contain winners
@@ -141,8 +142,7 @@ mkScoredTree p (Node board nextBoards) =
     scoredNextBoards = map (mkScoredTree (otherPlayer p)) nextBoards
 
     Scored bestPlay _ =
-      (if p == O then minimum else maximum) $
-        map (rootLabel . mkScoredTree (otherPlayer p)) nextBoards
+      rootLabel $ (if p == O then minimum else maximum) scoredNextBoards
 
 pruneDepth :: Int -> Tree a -> Tree a
 pruneDepth d (Node x ts)
@@ -153,19 +153,11 @@ mkGameTree :: Player -> Board -> Tree ScoredBoard
 mkGameTree p = mkScoredTree p . pruneDepth depth . mkTree p
 
 -- core logic: next moves that are a path to victory are scored X
--- if the next move is a win, take it, otherwise sort the next move with those
--- offering a path to victory first.
---
--- This could be optimized to avoid having to rebuild the game tree each time
 bestNextBoards :: Board -> Player -> [ScoredBoard]
 bestNextBoards board player =
-  if null playerWins
-    then [sb | (Node sb@(Scored p _) _) <- scoredNextBoards, p == best]
-    else playerWins -- if the next move wins, take it
+    [sb | (Node sb@(Scored p _) _) <- scoredNextBoards, p == best]
   where
     Node (Scored best _) scoredNextBoards = mkGameTree player board
-    playerWins =
-      [sb | Node sb@(Scored _ b) _ <- scoredNextBoards, winner b == player]
 
 -- put a play into the last B in the column, if there is one
 fillCol :: Player -> Row -> Maybe Row

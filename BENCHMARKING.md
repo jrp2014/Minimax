@@ -178,3 +178,36 @@ is not much better than using `filter`
     fillCol.(...)            Minimax   src/Minimax.hs:180:5-29            1.2    0.7
     mkScoredTree.(...)       Minimax   src/Minimax.hs:(149,5)-(151,65)    1.0    0.4
 
+## Use `isInfixOf`
+
+```haskell
+    rowWinner :: [Row] -> Player
+    rowWinner rs
+      | any (xWin `isInfixOf`) rs = X
+      | any (oWin `isInfixOf`) rs = O
+      | otherwise = B
+```
+is clearer and slightly faster
+
+            Fri Mar  5 18:35 2021 Time and Allocation Profiling Report  (Final)
+
+               minimax +RTS -N -p -RTS
+
+            total time  =        9.92 secs   (33836 ticks @ 1000 us, 12 processors)
+            total alloc = 23,635,152,800 bytes  (excludes profiling overheads)
+
+    COST CENTRE              MODULE    SRC                              %time %alloc
+
+    rowWinner                Minimax   src/Minimax.hs:(121,1)-(124,17)   51.5    0.0
+    byDiagonal.go            Minimax   src/Minimax.hs:(69,5)-(74,29)     10.5   31.2
+    scoreBoard.rowWinners    Minimax   src/Minimax.hs:(106,5)-(113,13)    9.5   26.1
+    ==                       Minimax   src/Minimax.hs:81:46-47            7.6    0.0
+    expandBoardByCol         Minimax   src/Minimax.hs:(189,1)-(195,37)    7.1   18.2
+    byDiagonal.go.ts         Minimax   src/Minimax.hs:74:9-29             4.4   11.2
+    scoreBoard.trimDiagonals Minimax   src/Minimax.hs:118:5-69            2.0    3.3
+    mkScoredTree.(...)       Minimax   src/Minimax.hs:(151,5)-(153,65)    1.2    1.0
+    fillCol.(...)            Minimax   src/Minimax.hs:182:5-30            1.2    1.7
+    scoreBoard               Minimax   src/Minimax.hs:(101,1)-(118,69)    1.1    0.0
+    fillCol.subst            Minimax   src/Minimax.hs:(184,5)-(185,42)    0.6    1.4
+    picks                    Minimax   src/Minimax.hs:(199,1)-(201,65)    0.4    1.9
+
