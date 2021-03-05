@@ -16,7 +16,7 @@ import Data.List
     tails,
     transpose,
   )
-import Data.Maybe ( catMaybes, fromMaybe, mapMaybe )
+import Data.Maybe (catMaybes, fromMaybe, mapMaybe)
 import Data.Tree
   ( Tree (..),
     drawTree,
@@ -94,17 +94,17 @@ scoreBoard board =
     board
   where
     rowWinners =
-      rowWinner
-        <$> [ byRow board,
-              byCol board,
-              trimDiagonals $ byDiagonal board,
-              trimDiagonals $ byReverseDiagonal board
+      rowWinner . ($ board)
+        <$> [ byRow,
+              byCol,
+              trimDiagonals . byDiagonal,
+              trimDiagonals . byReverseDiagonal
             ]
 
-   -- 1st/last win-1 diagonals can't contain winners
+    -- 1st/last win-1 diagonals can't contain winners
     trimDiagonals :: [Row] -> [Row]
     --trimDiagonals = take (rows + cols - 1 - 2 * (win - 1)) . drop (win - 1)
-    trimDiagonals = take (rows + cols + 1 - 2 * win ) . drop (win - 1)
+    trimDiagonals = take (rows + cols + 1 - 2 * win) . drop (win - 1)
 
 -- Accounts for 30% of runtime
 rowWinner :: [Row] -> Player
@@ -179,7 +179,7 @@ bestNextBoards board player =
 fillCol :: Player -> Row -> Maybe Row
 fillCol p r = subst bs rest
   where
-    (bs, rest) = span (==B) r
+    (bs, rest) = span (== B) r
 
     subst [] _ = Nothing -- the column is full
     subst xs ys = Just $ init xs ++ p : ys
