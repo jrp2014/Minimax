@@ -10,17 +10,19 @@
 module Minimax where
 
 import Data.List
-  ( find,
-    intercalate,
-    isPrefixOf,
-    tails,
+  ( intercalate,
+    isInfixOf,
     transpose,
   )
-import Data.Maybe (catMaybes, fromMaybe, mapMaybe)
+import Data.Maybe
+  ( mapMaybe,
+  )
 import Data.Tree
   ( Tree (..),
     drawTree,
   )
+
+--import KMP
 
 -- dimensions / limits
 
@@ -94,7 +96,8 @@ scoreBoard board =
     board
   where
     rowWinners =
-      rowWinner . ($ board)
+      rowWinner
+        . ($ board)
         <$> [ byRow,
               byCol,
               trimDiagonals . byDiagonal,
@@ -106,22 +109,11 @@ scoreBoard board =
     --trimDiagonals = take (rows + cols - 1 - 2 * (win - 1)) . drop (win - 1)
     trimDiagonals = take (rows + cols + 1 - 2 * win) . drop (win - 1)
 
--- Accounts for 30% of runtime
 rowWinner :: [Row] -> Player
-rowWinner =
-  ( \case
-      [] -> B
-      (w : _) -> w
-  )
-    . concat
-    . mapMaybe (find aWin . windows)
-
-windows :: [Player] -> [[Player]]
-windows = foldr (zipWith (:)) (repeat []) . take win . tails
-
--- Accounts for 20% of runtime
-aWin :: [Player] -> Bool
-aWin run = (run == oWin) || (run == xWin)
+rowWinner rs
+  | any (xWin `isInfixOf`) rs = X
+  | any (oWin `isInfixOf`) rs = O
+  | otherwise = B
 
 oWin, xWin :: [Player]
 oWin = replicate win O
