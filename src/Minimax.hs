@@ -157,6 +157,7 @@ bestNextBoards :: Board -> Player -> [ScoredBoard]
 bestNextBoards board player =
     [sb | (Node sb@(Scored p _) _) <- scoredNextBoards, p == best]
   where
+    -- best is a X or O if there is a path to victory for them, otherwise B
     Node (Scored best _) scoredNextBoards = mkGameTree player board
 
 -- put a play into the last B in the column, if there is one

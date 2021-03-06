@@ -13,6 +13,7 @@ license-file:    LICENSE
 author:          jrp2014
 maintainer:      jrp2014 <jrp2014@users.noreply.github.com>
 copyright:       2021 jrp2014
+category:        Game
 build-type:      Simple
 extra-doc-files:
   CHANGELOG.md
@@ -29,7 +30,8 @@ common common-options
   ghc-options:
     -Wall -Wcompat -Widentities -Wincomplete-uni-patterns
     -Wincomplete-record-updates -Wredundant-constraints
-    -Wnoncanonical-monad-instances -O2
+    -Wnoncanonical-monad-instances
+    -- -O2
 
   if impl(ghc >=8.2)
     ghc-options: -fhide-source-paths

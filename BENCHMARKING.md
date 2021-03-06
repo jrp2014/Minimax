@@ -120,7 +120,6 @@ is not much better:
 
 is still worse than using `isPrefix`
 
-
             Tue Mar  2 18:43 2021 Time and Allocation Profiling Report  (Final)
 
                minimax +RTS -N -p -RTS
@@ -152,7 +151,7 @@ is still worse than using `isPrefix`
       )
         . concat
         . mapMaybe (find aWin . windows)
-  ```
+```
 
 is not much better than using `filter`
 
@@ -187,6 +186,7 @@ is not much better than using `filter`
       | any (oWin `isInfixOf`) rs = O
       | otherwise = B
 ```
+
 is clearer and slightly faster
 
             Fri Mar  5 18:35 2021 Time and Allocation Profiling Report  (Final)
@@ -211,3 +211,44 @@ is clearer and slightly faster
     fillCol.subst            Minimax   src/Minimax.hs:(184,5)-(185,42)    0.6    1.4
     picks                    Minimax   src/Minimax.hs:(199,1)-(201,65)    0.4    1.9
 
+# Fix `mkScoredTree` again
+
+```haskell
+    mkScoredTree :: Player -> Tree Board -> Tree ScoredBoard
+    mkScoredTree B _ = error "Cannot make a Scored Tree for B"
+    mkScoredTree _ (Node board []) = Node (scoreBoard board) []
+    mkScoredTree p (Node board nextBoards) =
+      Node
+        (Scored bestPlay board)
+        scoredNextBoards
+      where
+        scoredNextBoards :: [Tree ScoredBoard]
+        scoredNextBoards = map (mkScoredTree (otherPlayer p)) nextBoards
+
+        Scored bestPlay _ =
+          rootLabel $ (if p == O then minimum else maximum) scoredNextBoards
+```
+
+almost halves runningn time. (Subtrees were being scored twice.)
+
+              Fri Mar  5 20:35 2021 Time and Allocation Profiling Report  (Final)
+
+               minimax +RTS -N -p -RTS
+
+            total time  =        5.85 secs   (19955 ticks @ 1000 us, 12 processors)
+            total alloc = 14,952,099,168 bytes  (excludes profiling overheads)
+
+    COST CENTRE              MODULE    SRC                              %time %alloc
+
+    rowWinner                Minimax   src/Minimax.hs:(114,1)-(117,17)   47.1    0.0
+    expandBoardByCol         Minimax   src/Minimax.hs:(182,1)-(188,37)   11.8   28.8
+    byDiagonal.go            Minimax   src/Minimax.hs:(59,5)-(65,29)      9.8   24.6
+    scoreBoard.rowWinners    Minimax   src/Minimax.hs:(100,5)-(106,13)    8.6   19.6
+    ==                       Minimax   src/Minimax.hs:72:46-47            6.0    0.0
+    byDiagonal.go.ts         Minimax   src/Minimax.hs:65:9-29             4.1    8.8
+    fillCol.(...)            Minimax   src/Minimax.hs:175:5-30            1.9    2.7
+    scoreBoard.trimDiagonals Minimax   src/Minimax.hs:111:5-69            1.6    2.6
+    scoreBoard               Minimax   src/Minimax.hs:(95,1)-(111,69)     1.6    1.0
+    fillCol.subst            Minimax   src/Minimax.hs:(177,5)-(178,42)    1.2    2.2
+    picks                    Minimax   src/Minimax.hs:(192,1)-(194,65)    0.8    3.0
+    expandBoardByCol.toBoard Minimax   src/Minimax.hs:(185,5)-(188,37)    0.6    1.1
